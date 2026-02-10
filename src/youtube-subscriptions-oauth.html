@@ -419,6 +419,9 @@
         let accessToken = null;
         let gapiInited = false;
         let gisInited = false;
+        let subscriptions = []; // Store subscriptions globally
+        let currentChannelFilter = null;
+        let allVideos = []; // Store all videos globally for filtering
 
         // Cookie helper functions
         function setCookie(name, value, days = 7) {
@@ -664,6 +667,9 @@
                 return;
             }
 
+            console.log('Loading subscription videos...');
+            console.log('Current allVideos:', allVideos);
+
             // Validate the token before proceeding
             const isValid = await validateAccessToken();
             if (!isValid) {
@@ -686,27 +692,38 @@
                     return;
                 }
 
+                console.log('Subscriptions fetched:', subscriptions);
                 showLoading(true, `Loading videos from ${subscriptions.length} channels...`);
 
                 // Get recent videos from each subscription
                 const maxResults = parseInt(document.getElementById('maxResults').value);
-                const allVideos = await getVideosFromSubscriptions(subscriptions, maxResults);
+                const fetchedVideos = await getVideosFromSubscriptions(subscriptions, maxResults);
 
-                if (allVideos.length === 0) {
+                if (fetchedVideos.length === 0) {
                     showError('No videos found from your subscriptions');
                     return;
                 }
 
-                // Sort by publish date (newest first)
-                allVideos.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+                console.log('All videos fetched:', fetchedVideos);
+                // Store all videos globally for filtering
+                storeAllVideos(fetchedVideos);
 
-                displayVideos(allVideos);
+                // Sort by publish date (newest first)
+                fetchedVideos.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
+                displayVideos(fetchedVideos);
+
+                // Create channel filter dropdown only if it doesn't exist
+                if (!document.getElementById('channelFilter')) {
+                    createChannelFilterDropdown();
+                }
 
                 document.getElementById('stats').style.display = 'flex';
-                document.getElementById('videoCount').textContent = allVideos.length;
+                document.getElementById('videoCount').textContent = fetchedVideos.length;
                 document.getElementById('channelCount').textContent = subscriptions.length;
 
             } catch (error) {
+                console.error('Error:', error);
                 showError(`Error: ${error.message}`);
                 console.error(error);
             } finally {
@@ -744,6 +761,8 @@
                 pageToken = data.nextPageToken || '';
             } while (pageToken);
 
+            // Store subscriptions globally for filtering
+            window.subscriptions = subscriptions;
             return subscriptions;
         }
 
@@ -797,7 +816,8 @@
                             thumbnail: item.snippet.thumbnails.high || item.snippet.thumbnails.medium,
                             channelTitle: sub.channelTitle,
                             channelThumbnail: sub.channelThumbnail,
-                            publishedAt: item.snippet.publishedAt
+                            publishedAt: item.snippet.publishedAt,
+                            channelId: sub.channelId
                         }));
                     } catch (error) {
                         console.error(`Error fetching videos for ${sub.channelTitle}:`, error);
@@ -815,12 +835,70 @@
             return allVideos;
         }
 
+        function filterVideosByChannel(channelId) {
+            if (!channelId || channelId === 'all') {
+                return getAllVideos();
+            }
+            return getAllVideos().filter(video => video.channelId === channelId);
+        }
+
+        function createChannelFilterDropdown() {
+            // Check if dropdown already exists
+            if (document.getElementById('channelFilter')) {
+                return;
+            }
+
+            const container = document.getElementById('authenticated-view');
+            const dropdown = document.createElement('div');
+            dropdown.className = 'filter-group';
+            dropdown.innerHTML = `
+                <label for="channelFilter">Filter by channel:</label>
+                <select id="channelFilter" onchange="handleChannelFilterChange()">
+                    <option value="all" selected>All channels</option>
+                    ${window.subscriptions.map(sub =>
+                        `<option value="${sub.channelId}">${escapeHtml(sub.channelTitle)}</option>`
+                    ).join('')}
+                </select>
+            `;
+            container.insertBefore(dropdown, container.querySelector('.button.secondary'));
+        }
+
+        function handleChannelFilterChange() {
+            const select = document.getElementById('channelFilter');
+            const channelId = select.value;
+            currentChannelFilter = channelId;
+
+            console.log('Channel filter changed:', channelId);
+            console.log('Current allVideos:', allVideos);
+
+            // Filter videos using the stored complete list
+            const filteredVideos = filterVideosByChannel(channelId);
+            console.log('Filtered videos:', filteredVideos);
+
+            displayVideos(filteredVideos);
+
+            // Update stats
+            document.getElementById('videoCount').textContent = filteredVideos.length;
+            document.getElementById('channelCount').textContent =
+                channelId === 'all' ? window.subscriptions.length : 1;
+        }
+
+        function storeAllVideos(videos) {
+            allVideos = videos;
+        }
+
+        function getAllVideos() {
+            console.log('Getting all videos:', allVideos);
+            return allVideos;
+        }
+
         function displayVideos(videos) {
             const container = document.getElementById('videos');
             container.innerHTML = '';
 
             videos.forEach(video => {
                 const videoUrl = `https://www.youtube.com/watch?v=${video.videoId}`;
+                const channelUrl = `https://www.youtube.com/channel/${video.channelId}`;
 
                 const videoCard = document.createElement('div');
                 videoCard.className = 'video-card';
@@ -836,6 +914,11 @@
                         </div>
                         <div class="video-description">${escapeHtml(video.description || 'No description available')}</div>
                         <div class="video-meta">${formatDate(video.publishedAt)}</div>
+                        <div class="video-meta">
+                            <a href="${channelUrl}" target="_blank" style="font-size: 13px; color: #0066cc;">
+                                📍 View Channel
+                            </a>
+                        </div>
                     </div>
                 `;
 
