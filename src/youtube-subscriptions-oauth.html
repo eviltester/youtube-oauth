@@ -345,6 +345,47 @@
         #login-view {
             display: block;
         }
+
+        .channel-header {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ff0000;
+        }
+
+        .channel-header h3 {
+            margin: 0 0 8px 0;
+            color: #333;
+        }
+
+        .channel-header h3 a {
+            color: #ff0000;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .channel-header h3 a:hover {
+            text-decoration: underline;
+        }
+
+        .channel-header .channel-info {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .channel-header .channel-info a {
+            color: #0066cc;
+        }
+
+        .channel-header img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
@@ -424,6 +465,7 @@
         let allVideos = []; // Store all videos globally for filtering
         let channelVideoCounts = {}; // Store video counts per channel
         let channelRecentDates = {}; // Store most recent video date per channel
+        let currentChannelInfo = null; // Store current filtered channel info
 
         // Cookie helper functions
         function setCookie(name, value, days = 7) {
@@ -972,6 +1014,58 @@
             container.insertBefore(dropdown, container.querySelector('.button.secondary'));
         }
 
+        function createChannelHeader(channelId) {
+            // Get channel info from subscriptions
+            const channel = window.subscriptions.find(sub => sub.channelId === channelId);
+            if (!channel) return null;
+
+            const channelHeader = document.createElement('div');
+            channelHeader.className = 'channel-header';
+            channelHeader.innerHTML = `
+                <div style="background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 20px; border-left: 4px solid #ff0000;">
+                    <h3 style="margin: 0 0 8px 0; color: #333;">
+                        <a href="https://www.youtube.com/channel/${channelId}" target="_blank" style="color: #ff0000; text-decoration: none;">
+                            <img src="${channel.channelThumbnail}" alt="${escapeHtml(channel.channelTitle)}" style="width: 36px; height: 36px; border-radius: 50%; vertical-align: middle; margin-right: 10px;">
+                            ${escapeHtml(channel.channelTitle)}
+                        </a>
+                    </h3>
+                    <div style="color: #666; font-size: 14px;">
+                        <a href="https://www.youtube.com/channel/${channelId}" target="_blank" style="color: #0066cc;">
+                            📍 View Channel on YouTube
+                        </a>
+                    </div>
+                </div>
+            `;
+            return channelHeader;
+        }
+
+        function showChannelHeader(channelId) {
+            const container = document.getElementById('videos');
+            const existingHeader = container.querySelector('.channel-header');
+
+            if (existingHeader) {
+                existingHeader.remove();
+            }
+
+            const header = createChannelHeader(channelId);
+            if (header) {
+                container.insertBefore(header, container.firstChild);
+                currentChannelInfo = {
+                    channelId: channelId,
+                    channelName: header.querySelector('h3 a').textContent.trim()
+                };
+            }
+        }
+
+        function hideChannelHeader() {
+            const container = document.getElementById('videos');
+            const existingHeader = container.querySelector('.channel-header');
+            if (existingHeader) {
+                existingHeader.remove();
+            }
+            currentChannelInfo = null;
+        }
+
         function handleChannelFilterChange() {
             const select = document.getElementById('channelFilter');
             const channelId = select.value;
@@ -993,6 +1087,13 @@
 
             // Update dropdown counts after filtering
             updateChannelDropdown();
+
+            // Show/hide channel header
+            if (channelId !== 'all') {
+                showChannelHeader(channelId);
+            } else {
+                hideChannelHeader();
+            }
         }
 
         function storeAllVideos(videos) {
