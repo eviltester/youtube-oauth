@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Subscriptions Viewer (OAuth)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f9f9f9;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #ff0000;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .setup {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #ffc107;
+            margin-bottom: 20px;
+        }
+
+        .setup p {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+
+        .setup ol {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+
+        .setup a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        .setup a:hover {
+            text-decoration: underline;
+        }
+
+        .setup code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #ff0000;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background 0.3s;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background: #cc0000;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: #606060;
+        }
+
+        button.secondary:hover {
+            background: #404040;
+        }
+
+        .auth-status {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #28a745;
+            display: none;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .user-info img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+        }
+
+        .user-details h3 {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .user-details p {
+            font-size: 14px;
+            color: #606060;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #ff0000;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #dc3545;
+        }
+
+        .videos-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .video-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: box-shadow 0.2s;
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+        }
+
+        .video-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .thumbnail-container {
+            position: relative;
+            width: 246px;
+            min-width: 246px;
+            height: 138px;
+            cursor: pointer;
+            overflow: hidden;
+            background: #000;
+        }
+
+        .thumbnail-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s;
+        }
+
+        .thumbnail-container:hover img {
+            transform: scale(1.05);
+        }
+
+        .duration {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .video-info {
+            padding: 12px 16px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .channel-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            margin-right: 12px;
+            float: left;
+        }
+
+        .video-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            line-height: 1.4;
+            color: #030303;
+        }
+
+        .video-channel {
+            font-size: 14px;
+            color: #606060;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .video-description {
+            font-size: 14px;
+            color: #606060;
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .video-meta {
+            font-size: 13px;
+            color: #606060;
+            margin-top: auto;
+        }
+
+        @media (max-width: 768px) {
+            .video-card {
+                flex-direction: column;
+            }
+
+            .thumbnail-container {
+                width: 100%;
+                height: auto;
+                padding-bottom: 56.25%;
+            }
+
+            .thumbnail-container img {
+                position: absolute;
+                top: 0;
+                left: 0;
+            }
+        }
+
+        .stats {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+        select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        #authenticated-view {
+            display: none;
+        }
+
+        #login-view {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📺 YouTube Subscriptions Viewer</h1>
+
+            <div id="login-view">
+                <div class="setup">
+                    <p><strong>Setup Instructions:</strong></p>
+                    <ol>
+                        <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a></li>
+                        <li>Create a new project or select an existing one</li>
+                        <li>Enable the <strong>YouTube Data API v3</strong></li>
+                        <li>Go to Credentials → Create Credentials → OAuth 2.0 Client ID</li>
+                        <li>Choose "Web application" as the application type</li>
+                        <li>Add <code>http://localhost</code> and <code>http://127.0.0.1</code> to "Authorized JavaScript origins"</li>
+                        <li>Add <code>http://localhost</code> and <code>http://127.0.0.1</code> to "Authorized redirect URIs"</li>
+                        <li>Copy your Client ID and paste it below</li>
+                    </ol>
+                </div>
+
+                <div class="input-group">
+                    <label for="clientId">OAuth 2.0 Client ID:</label>
+                    <input type="text" id="clientId" placeholder="Enter your Google OAuth 2.0 Client ID">
+                </div>
+
+                <button id="authButton" onclick="handleAuthClick()">Connect with YouTube</button>
+            </div>
+
+            <div id="authenticated-view">
+                <div class="auth-status" id="authStatus">
+                    <div class="user-info" id="userInfo"></div>
+                </div>
+
+                <div class="controls">
+                    <button onclick="loadSubscriptionVideos()">🔄 Refresh Videos</button>
+                    <button class="secondary" onclick="signOut()">Sign Out</button>
+                </div>
+
+                <div class="filter-group">
+                    <label for="maxResults">Videos to load:</label>
+                    <select id="maxResults">
+                        <option value="10">10 videos</option>
+                        <option value="25" selected>25 videos</option>
+                        <option value="50">50 videos</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <div id="stats" class="stats" style="display: none;">
+            <div>
+                <p>Loaded <strong><span id="videoCount">0</span></strong> videos from <strong><span id="channelCount">0</span></strong> subscribed channels</p>
+            </div>
+            <div id="statsActions"></div>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p id="loadingText">Loading videos...</p>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="videos" class="videos-container"></div>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        let tokenClient;
+        let accessToken = null;
+        let gapiInited = false;
+        let gisInited = false;
+
+        const CLIENT_ID = localStorage.getItem('youtube_oauth_client_id') || '';
+        const API_KEY = '';  // Not needed for OAuth flow
+        const SCOPES = 'https://www.googleapis.com/auth/youtube.readonly';
+
+        // Load the client ID if stored
+        if (CLIENT_ID) {
+            document.getElementById('clientId').value = CLIENT_ID;
+        }
+
+        // Initialize Google Identity Services
+        function initializeGIS() {
+            console.log('Initializing GIS with Client ID:', CLIENT_ID);
+
+            if (typeof google === 'undefined') {
+                console.error('Google Identity Services library not loaded');
+                showError('Google Identity Services library failed to load. Please refresh the page.');
+                return;
+            }
+
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    console.log('Got token response');
+                    accessToken = tokenResponse.access_token;
+                    onAuthSuccess();
+                },
+            });
+            gisInited = true;
+            console.log('GIS initialized successfully');
+        }
+
+        function handleAuthClick() {
+            console.log('handleAuthClick called');
+            const clientId = document.getElementById('clientId').value.trim();
+            console.log('Client ID from input:', clientId);
+
+            // If Client ID changed or not set, save and reload
+            if (clientId && clientId !== CLIENT_ID) {
+                console.log('Client ID changed, saving and reloading');
+                localStorage.setItem('youtube_oauth_client_id', clientId);
+                location.reload();
+                return;
+            }
+
+            // If no client ID at all
+            if (!clientId && !CLIENT_ID) {
+                showError('Please enter your OAuth 2.0 Client ID');
+                return;
+            }
+
+            // Otherwise, authenticate
+            console.log('Triggering authentication');
+            authenticate();
+        }
+
+        function authenticate() {
+            console.log('authenticate() called');
+
+            if (!CLIENT_ID) {
+                showError('Please enter your Client ID first');
+                return;
+            }
+
+            if (!gisInited) {
+                console.log('GIS not initialized, initializing now');
+                initializeGIS();
+                // Wait for initialization
+                setTimeout(() => {
+                    console.log('Requesting access token');
+                    tokenClient.requestAccessToken({ prompt: 'consent' });
+                }, 500);
+            } else {
+                console.log('Requesting access token');
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+            }
+        }
+
+        function onAuthSuccess() {
+            document.getElementById('login-view').style.display = 'none';
+            document.getElementById('authenticated-view').style.display = 'block';
+            document.getElementById('authStatus').style.display = 'block';
+
+            loadUserProfile();
+            loadSubscriptionVideos();
+        }
+
+        async function loadUserProfile() {
+            try {
+                const response = await fetch(
+                    'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    }
+                );
+
+                const data = await response.json();
+
+                if (data.items && data.items.length > 0) {
+                    const channel = data.items[0].snippet;
+                    const userInfoHtml = `
+                        <img src="${channel.thumbnails.default.url}" alt="Profile">
+                        <div class="user-details">
+                            <h3>${escapeHtml(channel.title)}</h3>
+                            <p>Connected to YouTube</p>
+                        </div>
+                    `;
+                    document.getElementById('userInfo').innerHTML = userInfoHtml;
+                }
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+            }
+        }
+
+        async function loadSubscriptionVideos() {
+            if (!accessToken) {
+                showError('Please sign in first');
+                return;
+            }
+
+            hideError();
+            showLoading(true, 'Loading your subscriptions...');
+            document.getElementById('videos').innerHTML = '';
+            document.getElementById('stats').style.display = 'none';
+
+            try {
+                // Get user's subscriptions
+                const subscriptions = await getSubscriptions();
+
+                if (subscriptions.length === 0) {
+                    showError('You have no subscriptions');
+                    return;
+                }
+
+                showLoading(true, `Loading videos from ${subscriptions.length} channels...`);
+
+                // Get recent videos from each subscription
+                const maxResults = parseInt(document.getElementById('maxResults').value);
+                const allVideos = await getVideosFromSubscriptions(subscriptions, maxResults);
+
+                if (allVideos.length === 0) {
+                    showError('No videos found from your subscriptions');
+                    return;
+                }
+
+                // Sort by publish date (newest first)
+                allVideos.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
+                displayVideos(allVideos);
+
+                document.getElementById('stats').style.display = 'flex';
+                document.getElementById('videoCount').textContent = allVideos.length;
+                document.getElementById('channelCount').textContent = subscriptions.length;
+
+            } catch (error) {
+                showError(`Error: ${error.message}`);
+                console.error(error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function getSubscriptions() {
+            const subscriptions = [];
+            let pageToken = '';
+
+            do {
+                const url = `https://www.googleapis.com/youtube/v3/subscriptions?part=snippet&mine=true&maxResults=50${pageToken ? '&pageToken=' + pageToken : ''}`;
+
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch subscriptions. Please check your OAuth setup.');
+                }
+
+                const data = await response.json();
+
+                if (data.items) {
+                    subscriptions.push(...data.items.map(item => ({
+                        channelId: item.snippet.resourceId.channelId,
+                        channelTitle: item.snippet.title,
+                        channelThumbnail: item.snippet.thumbnails.default.url
+                    })));
+                }
+
+                pageToken = data.nextPageToken || '';
+            } while (pageToken);
+
+            return subscriptions;
+        }
+
+        async function getVideosFromSubscriptions(subscriptions, maxVideosPerChannel = 5) {
+            const allVideos = [];
+            const batchSize = 5; // Process 5 channels at a time to avoid rate limits
+
+            for (let i = 0; i < subscriptions.length; i += batchSize) {
+                const batch = subscriptions.slice(i, i + batchSize);
+
+                const batchPromises = batch.map(async (sub) => {
+                    try {
+                        // Get the uploads playlist for this channel
+                        const channelResponse = await fetch(
+                            `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${sub.channelId}`,
+                            {
+                                headers: {
+                                    'Authorization': `Bearer ${accessToken}`
+                                }
+                            }
+                        );
+
+                        const channelData = await channelResponse.json();
+
+                        if (!channelData.items || channelData.items.length === 0) {
+                            return [];
+                        }
+
+                        const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
+
+                        // Get recent videos from uploads playlist
+                        const videosResponse = await fetch(
+                            `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=${maxVideosPerChannel}`,
+                            {
+                                headers: {
+                                    'Authorization': `Bearer ${accessToken}`
+                                }
+                            }
+                        );
+
+                        const videosData = await videosResponse.json();
+
+                        if (!videosData.items) {
+                            return [];
+                        }
+
+                        return videosData.items.map(item => ({
+                            videoId: item.snippet.resourceId.videoId,
+                            title: item.snippet.title,
+                            description: item.snippet.description,
+                            thumbnail: item.snippet.thumbnails.high || item.snippet.thumbnails.medium,
+                            channelTitle: sub.channelTitle,
+                            channelThumbnail: sub.channelThumbnail,
+                            publishedAt: item.snippet.publishedAt
+                        }));
+                    } catch (error) {
+                        console.error(`Error fetching videos for ${sub.channelTitle}:`, error);
+                        return [];
+                    }
+                });
+
+                const batchResults = await Promise.all(batchPromises);
+                batchResults.forEach(videos => allVideos.push(...videos));
+
+                // Update loading message
+                showLoading(true, `Loaded videos from ${Math.min(i + batchSize, subscriptions.length)} / ${subscriptions.length} channels...`);
+            }
+
+            return allVideos;
+        }
+
+        function displayVideos(videos) {
+            const container = document.getElementById('videos');
+            container.innerHTML = '';
+
+            videos.forEach(video => {
+                const videoUrl = `https://www.youtube.com/watch?v=${video.videoId}`;
+
+                const videoCard = document.createElement('div');
+                videoCard.className = 'video-card';
+                videoCard.innerHTML = `
+                    <div class="thumbnail-container" onclick="openVideo('${videoUrl}')">
+                        <img src="${video.thumbnail.url}" alt="${escapeHtml(video.title)}">
+                    </div>
+                    <div class="video-info">
+                        <div class="video-title">${escapeHtml(video.title)}</div>
+                        <div class="video-channel">
+                            <img src="${video.channelThumbnail}" alt="${escapeHtml(video.channelTitle)}" class="channel-avatar">
+                            ${escapeHtml(video.channelTitle)}
+                        </div>
+                        <div class="video-description">${escapeHtml(video.description || 'No description available')}</div>
+                        <div class="video-meta">${formatDate(video.publishedAt)}</div>
+                    </div>
+                `;
+
+                container.appendChild(videoCard);
+            });
+        }
+
+        function openVideo(url) {
+            window.open(url, '_blank');
+        }
+
+        function signOut() {
+            accessToken = null;
+            document.getElementById('login-view').style.display = 'block';
+            document.getElementById('authenticated-view').style.display = 'none';
+            document.getElementById('authStatus').style.display = 'none';
+            document.getElementById('videos').innerHTML = '';
+            document.getElementById('stats').style.display = 'none';
+            hideError();
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0) {
+                const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+                if (diffHours === 0) {
+                    const diffMinutes = Math.floor(diffTime / (1000 * 60));
+                    return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
+                }
+                return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+            } else if (diffDays === 1) {
+                return 'Yesterday';
+            } else if (diffDays < 7) {
+                return `${diffDays} days ago`;
+            } else if (diffDays < 30) {
+                const weeks = Math.floor(diffDays / 7);
+                return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+            } else if (diffDays < 365) {
+                const months = Math.floor(diffDays / 30);
+                return `${months} month${months > 1 ? 's' : ''} ago`;
+            } else {
+                const years = Math.floor(diffDays / 365);
+                return `${years} year${years > 1 ? 's' : ''} ago`;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.innerHTML = message;
+            errorDiv.style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+
+        function showLoading(show, text = 'Loading videos...') {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            if (show && text) {
+                document.getElementById('loadingText').textContent = text;
+            }
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            console.log('Page loaded');
+            console.log('CLIENT_ID from localStorage:', CLIENT_ID);
+            console.log('typeof google:', typeof google);
+
+            if (CLIENT_ID) {
+                console.log('Client ID found, will initialize GIS');
+                // Wait a bit for the Google script to load
+                setTimeout(() => {
+                    if (typeof google !== 'undefined') {
+                        initializeGIS();
+                    } else {
+                        console.error('Google Identity Services not loaded after timeout');
+                        showError('Failed to load Google Identity Services. Please refresh the page.');
+                    }
+                }, 1000);
+            } else {
+                console.log('No client ID found in localStorage');
+            }
+        };
+
+        // Auto-authenticate if we have a stored client ID
+        if (CLIENT_ID) {
+            // Don't auto-authenticate, let user click the button
+        }
+    </script>
+</body>
+</html>
