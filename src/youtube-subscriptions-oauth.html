@@ -432,7 +432,8 @@
 
                 <div class="controls">
                     <button onclick="loadSubscriptions()">🔄 Refresh Subscriptions</button>
-                    <button onclick="loadSubscriptionVideos()">🔄 Refresh Videos</button>
+                    <button onclick="loadSubscriptionVideos(true)">🔄 Refresh Videos</button>
+                    <button onclick="clearCache()" class="secondary">🗑️ Clear Cache</button>
                     <button class="secondary" onclick="signOut()">Sign Out</button>
                 </div>
 
@@ -702,16 +703,21 @@
         function getCacheData(key) {
             try {
                 const cached = localStorage.getItem(key);
-                if (!cached) return null;
+                if (!cached) {
+                    console.log(`No cache found for key: ${key}`);
+                    return null;
+                }
 
                 const data = JSON.parse(cached);
                 const now = Date.now();
 
                 // Check if cache is expired
                 if (data.timestamp && (now - data.timestamp) > CACHE_DURATION) {
+                    console.log(`Cache expired for key: ${key}. Age: ${now - data.timestamp}ms, Max: ${CACHE_DURATION}ms`);
                     return null;
                 }
 
+                console.log(`Cache valid for key: ${key}. Age: ${now - data.timestamp}ms`);
                 return data.data;
             } catch (error) {
                 console.error('Error reading cache:', error);
@@ -726,8 +732,22 @@
                     timestamp: Date.now()
                 };
                 localStorage.setItem(key, JSON.stringify(cacheEntry));
+                console.log(`Cache set for key: ${key}`, data);
             } catch (error) {
                 console.error('Error writing cache:', error);
+            }
+        }
+
+        function clearCache() {
+            try {
+                Object.values(CACHE_KEYS).forEach(key => {
+                    localStorage.removeItem(key);
+                    console.log(`Cleared cache for key: ${key}`);
+                });
+                showSuccess('Cache cleared successfully');
+            } catch (error) {
+                console.error('Error clearing cache:', error);
+                showError('Error clearing cache');
             }
         }
 
@@ -902,7 +922,7 @@
             }
         }
 
-        async function loadSubscriptionVideos() {
+        async function loadSubscriptionVideos(forceRefresh = false) {
             if (!accessToken) {
                 showError('Please sign in first');
                 return;
@@ -910,6 +930,7 @@
 
             console.log('Loading subscription videos...');
             console.log('Current allVideos:', allVideos);
+            console.log('Force refresh:', forceRefresh);
 
             // Validate the token before proceeding
             const isValid = await validateAccessToken();
@@ -920,13 +941,19 @@
             }
 
             hideError();
-            showLoading(true, 'Loading your subscriptions...');
+            showLoading(true, forceRefresh ? 'Refreshing your subscriptions...' : 'Loading your subscriptions...');
             document.getElementById('videos').innerHTML = '';
             document.getElementById('stats').style.display = 'none';
 
-            // Check cache for videos first
-            let cachedVideos = getCacheData(CACHE_KEYS.VIDEOS);
-            if (cachedVideos) {
+            // Check cache for videos first (unless forcing refresh)
+            let cachedVideos = null;
+            if (!forceRefresh) {
+                cachedVideos = getCacheData(CACHE_KEYS.VIDEOS);
+            } else {
+                console.log('Force refresh: bypassing cache');
+            }
+
+            if (cachedVideos && !forceRefresh) {
                 console.log('Using cached videos:', cachedVideos.length);
                 allVideos = cachedVideos;
                 displayVideos(allVideos);
@@ -934,6 +961,10 @@
                 showLoading(false);
                 showSuccess(`Loaded ${cachedVideos.length} videos from cache`);
                 return;
+            } else if (forceRefresh) {
+                console.log('Force refresh: fetching fresh videos');
+            } else {
+                console.log('No cached videos found, fetching fresh videos');
             }
 
             try {
@@ -1059,7 +1090,7 @@
                     try {
                         // Get the uploads playlist for this channel
                         const channelResponse = await fetch(
-                            `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&fields=contentDetails%2FrelatedPlaylists%2Fuploads&id=${sub.channelId}`,
+                            `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${sub.channelId}`,
                             {
                                 headers: {
                                     'Authorization': `Bearer ${accessToken}`
@@ -1077,7 +1108,7 @@
 
                         // Get recent videos from uploads playlist
                         const videosResponse = await fetch(
-                            `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&fields=items%2Fsnippet%2FresourceId%2FvideoId%2Citems%2Fsnippet%2Ftitle%2Citems%2Fsnippet%2Fdescription%2Citems%2Fsnippet%2Fthumbnails%2Fhigh%2Citems%2Fsnippet%2Fthumbnails%2Fmedium%2Citems%2Fsnippet%2FpublishedAt&playlistId=${uploadsPlaylistId}&maxResults=${maxVideosPerChannel}`,
+                            `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&fields=items%2Fsnippet%2FresourceId%2FvideoId%2Citems%2Fsnippet%2Ftitle%2Citems%2Fsnippet%2Fdescription%2Citems%2Fsnippet%2Fthumbnails%2Fdefault%2Citems%2Fsnippet%2Fthumbnails%2Fmedium%2Citems%2Fsnippet%2Fthumbnails%2Fhigh%2Citems%2Fsnippet%2FpublishedAt&playlistId=${uploadsPlaylistId}&maxResults=${maxVideosPerChannel}`,
                             {
                                 headers: {
                                     'Authorization': `Bearer ${accessToken}`
@@ -1116,6 +1147,7 @@
 
             // Cache the results
             setCacheData(CACHE_KEYS.VIDEOS, allVideos);
+            console.log(`Cached ${allVideos.length} videos successfully`);
 
             return allVideos;
         }
@@ -1224,6 +1256,25 @@
                 </select>
             `;
             container.insertBefore(dropdown, container.querySelector('.button.secondary'));
+        }
+
+        function updateChannelFilter(subscriptions) {
+            // Set default channel filter to "All"
+            currentChannelFilter = 'all';
+
+            // Update the subscriptions window reference
+            window.subscriptions = subscriptions || [];
+
+            // Create or update the channel filter dropdown
+            if (!document.getElementById('channelFilter')) {
+                createChannelFilterDropdown();
+            } else {
+                // Update existing dropdown
+                updateChannelDropdown();
+            }
+
+            // Apply the default filter
+            handleChannelFilterChange();
         }
 
         function createChannelHeader(channelId) {
