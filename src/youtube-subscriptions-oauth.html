@@ -434,6 +434,7 @@
                     <button onclick="loadSubscriptions()">🔄 Refresh Subscriptions</button>
                     <button onclick="loadSubscriptionVideos(true)">🔄 Refresh Videos</button>
                     <button onclick="clearCache()" class="secondary">🗑️ Clear Cache</button>
+                    <button onclick="clearAllChannelCaches()" class="secondary">🗑️ Clear Channel Caches</button>
                     <button class="secondary" onclick="signOut()">Sign Out</button>
                 </div>
 
@@ -543,6 +544,7 @@
         const CACHE_KEYS = {
             SUBSCRIPTIONS: 'youtube_subscriptions_cache',
             VIDEOS: 'youtube_videos_cache',
+            CHANNEL_VIDEOS: 'youtube_channel_videos_cache',
             LAST_UPDATED: 'youtube_cache_last_updated'
         };
 
@@ -738,16 +740,93 @@
             }
         }
 
+        // New per-channel caching functions
+        function getChannelCacheKey(channelId, channelTitle) {
+            // Sanitize channel title for use in key
+            const sanitizedTitle = channelTitle.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+            return `${CACHE_KEYS.CHANNEL_VIDEOS}:${channelId}:${sanitizedTitle}`;
+        }
+
+        function getChannelVideosCache(channelId, channelTitle) {
+            const cacheKey = getChannelCacheKey(channelId, channelTitle);
+            return getCacheData(cacheKey);
+        }
+
+        function setChannelVideosCache(channelId, channelTitle, videos) {
+            const cacheKey = getChannelCacheKey(channelId, channelTitle);
+            setCacheData(cacheKey, videos);
+        }
+
+        function getAllCachedVideos() {
+            const allVideos = [];
+            const prefix = CACHE_KEYS.CHANNEL_VIDEOS + ':';
+
+            // Get all keys that match our channel cache pattern
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(prefix)) {
+                    const cached = getCacheData(key);
+                    if (cached && Array.isArray(cached)) {
+                        allVideos.push(...cached);
+                    }
+                }
+            }
+
+            // Sort by publish date (newest first)
+            allVideos.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+            console.log(`Total cached videos from all channels: ${allVideos.length}`);
+            return allVideos;
+        }
+
+        function clearChannelCache(channelId, channelTitle) {
+            const cacheKey = getChannelCacheKey(channelId, channelTitle);
+            localStorage.removeItem(cacheKey);
+            console.log(`Cleared cache for channel: ${channelTitle}`);
+        }
+
         function clearCache() {
             try {
+                // Clear old cache format
                 Object.values(CACHE_KEYS).forEach(key => {
                     localStorage.removeItem(key);
                     console.log(`Cleared cache for key: ${key}`);
                 });
+
+                // Clear per-channel caches
+                const prefix = CACHE_KEYS.CHANNEL_VIDEOS + ':';
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith(prefix)) {
+                        localStorage.removeItem(key);
+                        console.log(`Cleared channel cache for key: ${key}`);
+                    }
+                }
+
                 showSuccess('Cache cleared successfully');
             } catch (error) {
                 console.error('Error clearing cache:', error);
                 showError('Error clearing cache');
+            }
+        }
+
+        function clearAllChannelCaches() {
+            try {
+                const prefix = CACHE_KEYS.CHANNEL_VIDEOS + ':';
+                let clearedCount = 0;
+
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith(prefix)) {
+                        localStorage.removeItem(key);
+                        console.log(`Cleared channel cache for key: ${key}`);
+                        clearedCount++;
+                    }
+                }
+
+                showSuccess(`Cleared ${clearedCount} channel caches`);
+            } catch (error) {
+                console.error('Error clearing channel caches:', error);
+                showError('Error clearing channel caches');
             }
         }
 
@@ -948,13 +1027,13 @@
             // Check cache for videos first (unless forcing refresh)
             let cachedVideos = null;
             if (!forceRefresh) {
-                cachedVideos = getCacheData(CACHE_KEYS.VIDEOS);
+                cachedVideos = getAllCachedVideos();
             } else {
                 console.log('Force refresh: bypassing cache');
             }
 
-            if (cachedVideos && !forceRefresh) {
-                console.log('Using cached videos:', cachedVideos.length);
+            if (cachedVideos && !forceRefresh && cachedVideos.length > 0) {
+                console.log('Using cached videos from all channels:', cachedVideos.length);
                 allVideos = cachedVideos;
                 displayVideos(allVideos);
                 updateCacheInfo(true, 'videos');
@@ -1122,7 +1201,7 @@
                             return [];
                         }
 
-                        return videosData.items.map(item => ({
+                        const channelVideos = videosData.items.map(item => ({
                             videoId: item.snippet.resourceId.videoId,
                             title: item.snippet.title,
                             description: item.snippet.description,
@@ -1132,6 +1211,12 @@
                             publishedAt: item.snippet.publishedAt,
                             channelId: sub.channelId
                         }));
+
+                        // Cache this channel's videos
+                        setChannelVideosCache(sub.channelId, sub.channelTitle, channelVideos);
+                        console.log(`Cached ${channelVideos.length} videos for channel: ${sub.channelTitle}`);
+
+                        return channelVideos;
                     } catch (error) {
                         console.error(`Error fetching videos for ${sub.channelTitle}:`, error);
                         return [];
@@ -1145,9 +1230,7 @@
                 showLoading(true, `Loaded videos from ${Math.min(i + batchSize, subscriptions.length)} / ${subscriptions.length} channels...`);
             }
 
-            // Cache the results
-            setCacheData(CACHE_KEYS.VIDEOS, allVideos);
-            console.log(`Cached ${allVideos.length} videos successfully`);
+            console.log(`Total videos fetched: ${allVideos.length}`);
 
             return allVideos;
         }
@@ -1391,6 +1474,9 @@
                         <div class="video-description">${escapeHtml(video.description || 'No description available')}</div>
                         <div class="video-meta">${formatDate(video.publishedAt)}</div>
                         <div class="video-meta">
+                            <a href="${videoUrl}" target="_blank" style="font-size: 13px; color: #0066cc; margin-right: 10px;">
+                                🎬 View Video
+                            </a>
                             <a href="${channelUrl}" target="_blank" style="font-size: 13px; color: #0066cc;">
                                 📍 View Channel
                             </a>
