@@ -20,7 +20,20 @@ Make a note of your client id when you create the app in the console.
 
 No details are stored by the app locally so you have to log in each time.
 
-## server.py. Usage:
+## Google Cloud Setup
+
+1.  Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2.  Create a new project or select an existing one
+3.  Enable the **YouTube Data API v3**
+4.  Go to Credentials → Create Credentials → OAuth 2.0 Client ID
+5.  Choose "Web application" as the application type
+6.  Add `http://localhost` and `http://127.0.0.1` to "Authorized JavaScript origins"
+7.  Add `http://localhost` and `http://127.0.0.1` to "Authorized redirect URIs"
+8.  Copy your Client ID and paste it into the form in the app, or setup the environment variable
+
+`YOUTUBE_OAUTH_CLIENT_ID` for `server.py` usage
+
+## `server.py` Usage
 
 Or use `server.py` and store your client id in an environment variable.
 
