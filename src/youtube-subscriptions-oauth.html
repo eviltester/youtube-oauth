@@ -1474,11 +1474,26 @@
                         <div class="video-description">${escapeHtml(video.description || 'No description available')}</div>
                         <div class="video-meta">${formatDate(video.publishedAt)}</div>
                         <div class="video-meta">
+                            <a href="#" onclick="copyToClipboard('${videoUrl}', this); return false;" style="font-size: 13px; color: #0066cc; margin-right: 10px; cursor: pointer;">
+                                📋 Copy Link
+                            </a>
                             <a href="${videoUrl}" target="_blank" style="font-size: 13px; color: #0066cc; margin-right: 10px;">
                                 🎬 View Video
                             </a>
-                            <a href="${channelUrl}" target="_blank" style="font-size: 13px; color: #0066cc;">
+                            <a href="${channelUrl}" target="_blank" style="font-size: 13px; color: #0066cc; margin-right: 10px;">
                                 📍 View Channel
+                            </a>
+                            <a href="https://youtubetotranscript.com/transcript?v=${video.videoId}" target="_blank" style="font-size: 13px; color: #0066cc; margin-right: 10px;">
+                                📝 youtubetoTranscript
+                            </a>
+                            <a href="https://vcyon.com/videos?videoId=${video.videoId}" target="_blank" style="font-size: 13px; color: #0066cc; margin-right: 10px;">
+                                📝 vycon
+                            </a>
+                            <a href="https://notegpt.io/youtube-transcript-generator" target="_blank" style="font-size: 13px; color: #0066cc; margin-right: 10px;">
+                                Notegpt.io
+                            </a>
+                            <a href="https://decopy.ai/youtube-transcript-generator/" target="_blank" style="font-size: 13px; color: #0066cc;">
+                                Decopy.ai
                             </a>
                         </div>
                     </div>
@@ -1490,6 +1505,19 @@
 
         function openVideo(url) {
             window.open(url, '_blank');
+        }
+
+        async function copyToClipboard(text, linkElement) {
+            try {
+                await navigator.clipboard.writeText(text);
+                const originalText = linkElement.innerHTML;
+                linkElement.innerHTML = '✓ Copied';
+                setTimeout(() => {
+                    linkElement.innerHTML = originalText;
+                }, 5000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+            }
         }
 
         function signOut() {
