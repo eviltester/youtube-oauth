@@ -417,10 +417,13 @@
                     </ol>
                 </div>
 
-                <div class="input-group">
-                    <label for="clientId">OAuth 2.0 Client ID:</label>
-                    <input type="text" id="clientId" placeholder="Enter your Google OAuth 2.0 Client ID">
-                </div>
+                <details>
+                    <summary id="clientIdSummary" style="cursor: pointer; margin-bottom: 10px;">OAuth 2.0 Client ID: (click to expand)</summary>
+                    <div class="input-group">
+                        <label for="clientId">OAuth 2.0 Client ID:</label>
+                        <input type="text" id="clientId" placeholder="Enter your Google OAuth 2.0 Client ID">
+                    </div>
+                </details>
 
                 <button id="authButton" onclick="handleAuthClick()">Connect with YouTube</button>
             </div>
@@ -529,6 +532,16 @@
         const API_KEY = '';  // Not needed for OAuth flow
         const SCOPES = 'https://www.googleapis.com/auth/youtube.readonly';
 
+        function updateClientIdSummary() {
+            const storedClientId = localStorage.getItem('youtube_oauth_client_id');
+            const summaryEl = document.getElementById('clientIdSummary');
+            if (storedClientId && storedClientId.length > 15) {
+                summaryEl.textContent = 'OAuth 2.0 Client ID: ' + storedClientId.substring(0, 15) + '...';
+            } else {
+                summaryEl.textContent = 'OAuth 2.0 Client ID: (click to expand)';
+            }
+        }
+
         // Check if quota reset (new day)
         function checkQuotaReset() {
             const lastCheck = localStorage.getItem('quota_last_check');
@@ -557,6 +570,7 @@
         // Load the client ID if stored
         if (CLIENT_ID) {
             document.getElementById('clientId').value = CLIENT_ID;
+            updateClientIdSummary();
         }
 
         // Check for existing authentication cookie
@@ -636,6 +650,7 @@
             if (clientId && clientId !== CLIENT_ID) {
                 console.log('Client ID changed, saving and reloading');
                 localStorage.setItem('youtube_oauth_client_id', clientId);
+                updateClientIdSummary();
                 location.reload();
                 return;
             }
