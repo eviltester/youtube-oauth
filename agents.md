@@ -5,12 +5,14 @@ A simple app for viewing youtube subscriptions:
 
 TODO:
 
-- [] split shorts and videos into a different view
-- [] Use RSS feed to get back the list of new videos as the main approach, drop down to API if it fails - this would allow the app to function even if the API key is out of date but subscription cache still exists
+
 - [] allow offline caching e.g. file based, from server - toggle when page is started
-- [] single page is getting a little large, split the javascript into sensible included .js files from a /js directory
+
 
 
 DONE:
 
 - [x] create a simple server wrapper for running the single page app and manage Client Key as Environment variable
+- [x] split shorts and videos into a different view - done via rss
+- [x] Use RSS feed to get back the list of new videos as the main approach, drop down to API if it fails - this would allow the app to function even if the API key is out of date but subscription cache still exists - rss implemented from service
+- [x] single page is getting a little large, split the javascript into sensible included .js files from a /js directory
