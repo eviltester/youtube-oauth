@@ -448,6 +448,10 @@
                         <option value="25" selected>25 videos</option>
                         <option value="50">50 videos</option>
                     </select>
+                    <label style="margin-left: 15px; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" id="showShorts" onchange="handleShortsFilterChange()">
+                        Show shorts
+                    </label>
                 </div>
 
                 <div id="cacheInfo" style="display: none; margin-top: 10px; font-size: 12px; color: #666;">
@@ -1050,7 +1054,9 @@
             if (cachedVideos && !forceRefresh && cachedVideos.length > 0) {
                 console.log('Using cached videos from all channels:', cachedVideos.length);
                 allVideos = cachedVideos;
-                displayVideos(allVideos);
+                const showShorts = document.getElementById('showShorts')?.checked || false;
+                const filteredVideos = allVideos.filter(v => showShorts || !v.isShort);
+                displayVideos(filteredVideos);
                 updateCacheInfo(true, 'videos');
                 showLoading(false);
                 showSuccess(`Loaded ${cachedVideos.length} videos from cache`);
@@ -1075,7 +1081,15 @@
 
                 // Get recent videos from each subscription
                 const maxResults = parseInt(document.getElementById('maxResults').value);
-                const fetchedVideos = await getVideosFromSubscriptions(subscriptions, maxResults);
+                
+                // Try RSS feed first (no API quota needed)
+                let fetchedVideos = await getVideosFromRSSFeed(subscriptions, maxResults);
+                
+                // If RSS didn't return videos, fall back to API
+                if (fetchedVideos.length === 0) {
+                    console.log('RSS feed returned no videos, falling back to API...');
+                    fetchedVideos = await getVideosFromSubscriptions(subscriptions, maxResults);
+                }
 
                 if (fetchedVideos.length === 0) {
                     showError('No videos found from your subscriptions');
@@ -1092,7 +1106,11 @@
                 // Sort by publish date (newest first)
                 fetchedVideos.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 
-                displayVideos(fetchedVideos);
+                // Apply shorts filter
+                const showShorts = document.getElementById('showShorts')?.checked || false;
+                const filteredVideos = fetchedVideos.filter(v => showShorts || !v.isShort);
+
+                displayVideos(filteredVideos);
 
                 // Create channel filter dropdown only if it doesn't exist
                 if (!document.getElementById('channelFilter')) {
@@ -1103,7 +1121,7 @@
                 }
 
                 document.getElementById('stats').style.display = 'flex';
-                document.getElementById('videoCount').textContent = fetchedVideos.length;
+                document.getElementById('videoCount').textContent = filteredVideos.length;
                 document.getElementById('channelCount').textContent = subscriptions.length;
 
             } catch (error) {
@@ -1247,6 +1265,55 @@
 
             console.log(`Total videos fetched: ${allVideos.length}`);
 
+            return allVideos;
+        }
+
+        async function getVideosFromRSSFeed(subscriptions, maxVideosPerChannel = 10) {
+            const allVideos = [];
+
+            for (let i = 0; i < subscriptions.length; i++) {
+                const sub = subscriptions[i];
+                try {
+                    const apiUrl = `/api/rss?channel_id=${sub.channelId}`;
+                    const response = await fetch(apiUrl);
+
+                    if (!response.ok) {
+                        console.log(`RSS feed not available for ${sub.channelTitle}, trying API...`);
+                        continue;
+                    }
+
+                    const data = await response.json();
+
+                    if (data.error) {
+                        console.log(`RSS error for ${sub.channelTitle}:`, data.error);
+                        continue;
+                    }
+
+                    const channelVideos = data.videos.slice(0, maxVideosPerChannel).map(video => ({
+                        videoId: video.videoId,
+                        title: video.title,
+                        description: video.description,
+                        thumbnail: video.thumbnail,
+                        channelTitle: sub.channelTitle,
+                        channelThumbnail: sub.channelThumbnail,
+                        publishedAt: video.publishedAt,
+                        channelId: sub.channelId,
+                        isShort: video.isShort
+                    }));
+
+                    if (channelVideos.length > 0) {
+                        setChannelVideosCache(sub.channelId, sub.channelTitle, channelVideos);
+                        allVideos.push(...channelVideos);
+                        console.log(`RSS: Cached ${channelVideos.length} videos for ${sub.channelTitle}`);
+                    }
+
+                    showLoading(true, `Loaded videos from ${i + 1} / ${subscriptions.length} channels...`);
+                } catch (error) {
+                    console.error(`Error fetching RSS for ${sub.channelTitle}:`, error);
+                }
+            }
+
+            console.log(`Total videos from RSS: ${allVideos.length}`);
             return allVideos;
         }
 
@@ -1430,10 +1497,14 @@
             const filteredVideos = filterVideosByChannel(channelId);
             console.log('Filtered videos:', filteredVideos);
 
-            displayVideos(filteredVideos);
+            // Apply shorts filter
+            const showShorts = document.getElementById('showShorts')?.checked || false;
+            const finalVideos = filteredVideos.filter(v => showShorts || !v.isShort);
+
+            displayVideos(finalVideos);
 
             // Update stats
-            document.getElementById('videoCount').textContent = filteredVideos.length;
+            document.getElementById('videoCount').textContent = finalVideos.length;
             document.getElementById('channelCount').textContent =
                 channelId === 'all' ? window.subscriptions.length : 1;
 
@@ -1446,6 +1517,11 @@
             } else {
                 hideChannelHeader();
             }
+        }
+
+        function handleShortsFilterChange() {
+            // Re-apply the current channel filter with the new shorts setting
+            handleChannelFilterChange();
         }
 
         function storeAllVideos(videos) {
