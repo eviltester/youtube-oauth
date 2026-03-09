@@ -317,7 +317,7 @@ async function getVideosFromRSSFeed(subscriptions, maxVideosPerChannel = 10) {
                 videoId: video.videoId,
                 title: video.title,
                 description: video.description,
-                thumbnail: video.thumbnail,
+                thumbnail: { url: video.thumbnail || `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg` },
                 channelTitle: sub.channelTitle,
                 channelThumbnail: sub.channelThumbnail,
                 publishedAt: video.publishedAt,

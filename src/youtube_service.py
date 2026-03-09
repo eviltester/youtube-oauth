@@ -67,9 +67,11 @@ def _parse_entry(entry: ET.Element, ns: Dict[str, str]) -> Dict[str, Any] | None
     published_at = _get_element_text(entry, "published", ns) or ""
     
     thumbnail = ""
-    thumbnail_el = entry.find("media:thumbnail", ns)
+    thumbnail_el = entry.find(".//media:thumbnail", ns)
     if thumbnail_el is not None:
         thumbnail = thumbnail_el.get("url", "")
+    if not thumbnail and video_id:
+        thumbnail = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
     
     description = _get_element_text(entry, "media:description", ns) or ""
     

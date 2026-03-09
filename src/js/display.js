@@ -5,12 +5,17 @@ function displayVideos(videos) {
     videos.forEach(video => {
         const videoUrl = `https://www.youtube.com/watch?v=${video.videoId}`;
         const channelUrl = `https://www.youtube.com/channel/${video.channelId}`;
+        const thumbnailUrl = (
+            typeof video.thumbnail === 'string'
+                ? video.thumbnail
+                : video.thumbnail?.url
+        ) || `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`;
 
         const videoCard = document.createElement('div');
         videoCard.className = 'video-card';
         videoCard.innerHTML = `
             <div class="thumbnail-container" onclick="openVideo('${videoUrl}')">
-                <img src="${video.thumbnail.url}" alt="${escapeHtml(video.title)}">
+                <img src="${thumbnailUrl}" alt="${escapeHtml(video.title)}">
             </div>
             <div class="video-info">
                 <div class="video-title">${escapeHtml(video.title)}</div>
