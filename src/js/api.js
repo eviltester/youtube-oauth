@@ -48,16 +48,24 @@ async function loadUserProfile() {
     }
 }
 
-async function loadSubscriptions() {
+async function loadSubscriptions(forceRefresh = false) {
     if (!accessToken) {
         showError('Please sign in first');
         return;
     }
 
-    showLoading(true, 'Loading subscriptions...');
+    showLoading(true, forceRefresh ? 'Refreshing subscriptions...' : 'Loading subscriptions...');
 
     try {
-        let subs = getCacheData(CACHE_KEYS.SUBSCRIPTIONS);
+        let subs = null;
+        let usedCache = false;
+
+        if (!forceRefresh) {
+            subs = getCacheData(CACHE_KEYS.SUBSCRIPTIONS);
+            usedCache = !!subs;
+        } else {
+            console.log('Force refresh: bypassing subscriptions cache');
+        }
 
         if (!subs) {
             subs = await getSubscriptions();
@@ -70,12 +78,13 @@ async function loadSubscriptions() {
 
         localStorage.setItem(CACHE_KEYS.LAST_UPDATED, Date.now().toString());
 
-        const wasCached = subs.length > 0;
-        updateCacheInfo(wasCached, 'subscriptions');
+        updateCacheInfo(usedCache, 'subscriptions');
 
         showLoading(false);
-        if (wasCached) {
+        if (usedCache) {
             showSuccess(`Loaded ${subs.length} subscriptions from cache`);
+        } else {
+            showSuccess(`Loaded ${subs.length} subscriptions from YouTube`);
         }
 
     } catch (error) {

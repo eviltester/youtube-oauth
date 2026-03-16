@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube Subscriptions Viewer (OAuth)</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="icon" sizes="32x32" type="image/x-icon" href="favicon-32x32.ico">
+    <link rel="icon" sizes="16x16" type="image/x-icon" href="favicon-16x16.ico">
     <style>
         * {
             margin: 0;
@@ -434,7 +439,7 @@
                 </div>
 
                 <div class="controls">
-                    <button onclick="loadSubscriptions()">🔄 Refresh Subscriptions</button>
+                    <button onclick="loadSubscriptions(true)">🔄 Refresh Subscriptions</button>
                     <button onclick="loadSubscriptionVideos(true)">🔄 Refresh Videos</button>
                     <button onclick="clearCache()" class="secondary">🗑️ Clear Cache</button>
                     <button onclick="clearAllChannelCaches()" class="secondary">🗑️ Clear Channel Caches</button>
